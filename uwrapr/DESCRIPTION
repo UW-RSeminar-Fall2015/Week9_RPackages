@@ -1,0 +1,15 @@
+Package: uwrapr
+Title: Useless Wrappers
+Version: 1.0.0
+Authors@R: c(
+    person("Joshua", "Schraiber", email = "schraib@uw.edu", role = c("aut", "cre")),
+    person("Charles", "Darwin", email = "darwin@beagle.hms", role = "ctb")
+  )
+Description: Provides useless functions that wrap basic arithmetic operations.
+Depends:
+    R (>= 3.3.0)
+Imports:
+    data.table
+License: GPL-3
+LazyData: true
+RoxygenNote: 5.0.1

@@ -1,0 +1,337 @@
+---
+title: "Babby’s first R package"
+author: "Josh Schraiber"
+date: "December 7, 2015"
+output: html_document
+---
+
+We want to go over the _very_ basics of developing an R package, which includes 4 basic components:
+
+- Description
+- R code
+- Documentation
+- Namespace
+
+We'll do this using Hadley Wickham's devtools package, along with the roxygen package. Much of this tutorial is shamely ripped off from Hadley's [excellent tutorial](http://r-pkgs.had.co.nz/).
+
+Let's get started by installing the relevant packages:
+
+```{r install_packages, eval=FALSE}
+install.packages(c("devtools", "roxygen2"))
+```
+
+```{r load_packages, hide=TRUE}
+library(devtools)
+library(roxygen2)
+```
+
+Now we can get down to business!
+
+## Creating a package
+
+Let's create a package that has function wrappers for basic arithmetic opertaions like `+`, `-`, `*`, and `/`. This is totally useless but should get the point across. We'll call it uwrapr, short for 'Useless Wrappers'.
+
+Let's say we want to create this package in our local directory, we can use
+
+```{r create_package, cache=TRUE}
+devtools::create("uwrapr")
+```
+
+In general, just put the path to the directory you want to create the file in. 
+
+## Describing a package
+
+The next step is to describe what the package does, so that future users (including one's own future-self) know what it does. You can see the default DESCRIPTION file above, in the output of the `devtools::create()` function, but for posterity I'll recreate it here:
+
+```
+Package: uwrapr
+Title: What the Package Does (one line, title case)
+Version: 0.0.0.9000
+Authors@R: person("First", "Last", email = "first.last@example.com", role = c("aut", "cre"))
+Description: What the package does (one paragraph).
+Depends: R (>= 3.3.0)
+License: What license is it under?
+LazyData: true
+```
+
+As far as I can tell this needs to be done by manually going in and editing your DESCRIPTION file, although I might be mistaken.
+
+The first line is simply the package name, and we can see that devtools automatically filled it out for us:
+
+```
+Package: uwrapr
+```
+
+Next, we can provide a longer name for our package. This lets you give a more helpful short description than your pithy package title that ends in 'r' that you spent forever coming up with. We already have a long-form title for this package:
+
+```
+Title: Useless Wrappers
+```
+
+It's a good habit to keep version numbers, and if you want to put your package on cran, it's absolutely essential. The rule of thumb I use follows from Hadley: `<major>.<minor>.<patch>`. There's also some stuff about a fourth column for in-development packages but you can look into that on your own time. For example, I recently updated my package PIGShift to version 1.0.1 because I needed to update my maintainer e-mail address. Since that was just a 'bug fix', I only incremented the patch number. Let's be ambitious and set this as version `1.0.0` of this package, even though it's still in development:
+
+```
+Version: 1.0.0
+```
+
+We can now add the authors of the package. You can see the general syntax in the example, so let's just use that to make me the author of this package:
+
+```
+Authors@R: person("Joshua","Schraiber",email="schraib@uw.edu",role=c("aut","cre"))
+```
+
+There are four three letter codes that specify roles:
+
+- aut: author
+- cre: creator
+- ctb: contributor
+- cph: copyright holder
+
+We might want to add another person as an author, which we do by providing a vector of authors. For example, let's say my homie Charles Darwin helped out on this package by contribing a small patch. Then we can have
+
+```
+Authors@R: c(
+    person("Joshua", "Schraiber", email = "schraib@uw.edu", role = c("aut", "cre"))
+    person("Charles", "Darwin", email = "darwin@beagle.hms", role = "ctb")
+  )
+```
+
+Now we have to think a bit, because we want a consise description of what the package does. To get your package on cran, this description needs to be a 'complete sentence', which _doesn't_ mean 'needs a verb and a noun'. It means it needs to end with a period.
+
+```
+Description: Provides useless functions that wrap basic arithmetic operations.
+```
+
+One of the most beneficial things about developing a package (and hosting it on a repository like cran) is that it can automatically manage dependencies. Unfortunately, the default devtools file doesn't use the most up-to-date rules, which is that you should use 'Imports', rather than 'Depends'. It's still okay to use 'Depends' to say which version of R you require. It's a good habit to depend on the version of R you're using to develop the package!
+
+In general, you might realize as you're building your package that you have some dependencies that you didn't realize at first, so you can just add them as time goes on. So for fun, let's add something that we import. How about we importa data.table so that we can read in a two-column file of numbers and perform an arithmetic operation on them:
+
+```
+Imports: data.table
+```
+
+If we're going to distribute this code at all, we should state what license the code is available under. I usually make code available under [GNU Public License](https://en.wikipedia.org/wiki/GNU_General_Public_License) (GPL), which basically says that your code is open source and reusable, but it's required to be in a GPL-compatible way. 
+
+```
+License: GPL-3
+```
+
+So now we have a new description file!
+
+```
+Package: uwrapr
+Title: Useless Wrappers
+Version: 1.0.0
+Authors@R: c(
+    person("Joshua", "Schraiber", email = "schraib@uw.edu", role = c("aut", "cre")),
+    person("Charles", "Darwin", email = "darwin@beagle.hms", role = "ctb")
+  )
+Description: Provides useless functions that wrap basic arithmetic operations.
+Depends: R (>= 3.3.0) 
+Imports: data.table
+License: GPL-3
+LazyData: true
+```
+
+## Writing R code for a package
+
+The hard work of actually writing some code had to come eventually. When exactly you get to this will depend on exactly your design process. Maybe you were just writing some scripts and realized that you had gotten complicated enough that it was wortwhile to turn into a package. Maybe you had planned to create a package all along. Regardless, we have to incorporate that code into the package. We do that by placing `.R` files in the `R/.` subdirectory of the package.
+
+You should probably follow some style guidelines when you write R code. I've seen a lot of people say that [Google's style guidelines](https://google.github.io/styleguide/Rguide.xml) are very helpful, although I think that [Hadley Wickham's style guide](http://r-pkgs.had.co.nz/r.html) makes a reasonable point that you should use underscores, rather than periods, to separate words in variable and function names.
+
+I've written some functions appropriate for our silly package. In the file `arithemetic_wrappers.R` I have placed wrappers for the arithmetic opertaions, for example:
+
+```{r addition_example, eval=FALSE}
+add_wrapper <- function(x, y) {
+  x + y
+}
+```
+
+I've also created another code file, `data_processing.R`, to implement our function that requires the data.table package to add things data that's read from a file:
+
+```{r add_table, eval=FALSE}
+add_from_file <- function(file) {
+  dat <- data.table::fread(file)
+  dat[, add_wrapper(V1, V2)]
+}
+```
+
+Note that I explicitly reference that `fread` is a function for the data.table package. I'll cover this in a bit more detail when I talk about Namespaces. 
+
+We can then test our code using the `devtools::load_all()` function:
+
+```{r load_functions}
+  devtools::load_all(pkg="uwrapr")
+```
+
+Now we can see if our functions work!
+
+```{r test_functions}
+add_wrapper(5,7)
+divide_wrapper(8,3)
+```
+
+## Documenting your code
+
+What if you actually want someone else to be able to use your code? Well, you've gotta document it! The 'standard' way to write documentation files in R is to create `.Rd` files in the `man/.` directory. These files have a strange syntax and are generally unpleasant to work with. Luckily, the roxygen2 package makes documenting your code easy (modulo acutally needing to write the documentation!).
+
+Essentially, all you need to do is add roxygen comments to your code. These comments start with `#'` to differentiate them from vanilla R comments. For example:
+
+```{r roxygen_example, eval=FALSE}
+#' Uselessly wrap the add function
+#'
+#' @param x The first number to add.
+#' @param y The second number to add.
+#' @return The result of computing \code{x + y}
+#' @examples 
+#' add_wrapper(5,3)
+#' add_wrapper(7,7)
+add_wrapper <- function(x, y) {
+  x + y
+} 
+```
+
+The first line of the roxygen comments is a title/description of the package, followed by some roxygen tags that allow you to efficiently document the input parameters, return value, and provide examples of usage. Examples can both be helpful for users, as well as serve as a sort of half-assed unit test. 
+
+Once you write all your documentation, you simply run `devtools::document()`, and the magic is done for you. Then you can load your package back up and view your beautiful documentation
+
+```{r document_code, cache=TRUE}
+devtools::document("uwrapr")
+devtools::load_all("uwrapr")
+?add_wrapper
+```
+
+## Namespaces
+### or 
+## How to avoid conflicts with other packages and make sure the right thing happens
+
+You may note that I've always been calling things using `package_name::function_name()` syntax. When using R interacively, this can greatly reduce the possibility that you call a function with the same name but in another package, which can result in unexpected behavior. When you're developing a package, you want to be absolutely sure you don't have unexpected behavior, since you're potentially going to distribute it to other people and you'd really like to avoid getting e-mails telling you that something is broken!
+
+One decision we need to make is which functions in our package will be available to the user. Some functions are only used internally, within other functions in our package, and we may have a design reason to avoid giving the user the ability to use those functions. Hence, we need to _export_ the functions we want the user to be able to use.
+
+The 'by-hand' way to export functions is to edit the NAMESPACE file that's in the package directory. Generically, you can write `export(function_name)` and have exactly that happen. But we'd rather avoid that, and instead make use of roxygen2 to handle exporting for us. This is done by simply adding the `@export` tag to our function documentation:
+
+```{r export_example, eval=FALSE}
+#' Uselessly wrap the add function
+#'
+#' @param x The first number to add.
+#' @param y The second number to add.
+#' @return The result of computing \code{x + y}
+#' @examples 
+#' add_wrapper(5,3)
+#' add_wrapper(7,7)
+#' @export
+add_wrapper <- function(x, y) {
+  x + y
+} 
+```
+
+To demonstrate this, I'll export all the functions from wrapr except the `wrapr::subtract_wrapper()`, just to show how this works:
+
+```{r export_functions, cache=TRUE, error=TRUE}
+devtools::document("uwrapr")
+devtools::load_all("uwrapr", export_all = FALSE)
+add_wrapper(3,1)
+multiply_wrapper(6,3)
+subtract_wrapper(5,6)
+```
+
+(NB: we need to use `export_all = FALSE` to actually care about the namespace.)
+
+We also need to be able to specify which functions from other packages that we use. There are two levels here. On one level, we need to import required packages using the Import line of the DESCRIPTION file. Then, we need to make sure we use the right function inside of our package. This can be done in two ways:
+
+- Explicitly call the function using the package name, as we have been doing so far
+- Import the functions from the appropriate packages
+
+Hadley Wickham recommends the first option, and I'm inclined to agree. It makes your code a little bulkier but it's always 100% clear what's going on. If you do want to use the second option, you can have roxygen do the hard work for you, by adding a `@import <package>` and `@importFrom <package> <function>` to your roxygen comments in your code.
+
+## Packaging your package
+
+To build and distribute a package, you first want to make sure it works. We've got the `devtools::check()` function to take care of this for us:
+
+```{r check_package, cache=TRUE}
+devtools::check("uwrapr")
+```
+
+This results ina  log file showing the results of the check:
+
+```
+ checking for file ‘/Users/joshuaschraiber/Desktop/R_Package_class/uwrapr/DESCRIPTION’ ... OK
+* preparing ‘uwrapr’:
+* checking DESCRIPTION meta-information ... OK
+* checking for LF line-endings in source and make files
+* checking for empty or unneeded directories
+* building ‘uwrapr_1.0.0.tar.gz’
+
+* using log directory ‘/private/var/folders/y9/4h8z02lj2pn8f9lpkx8v8v740000gn/T/RtmpsK416y/uwrapr.Rcheck’
+* using R Under development (unstable) (2015-12-07 r69743)
+* using platform: x86_64-apple-darwin13.4.0 (64-bit)
+* using session charset: UTF-8
+* using option ‘--as-cran’
+* checking for file ‘uwrapr/DESCRIPTION’ ... OK
+* this is package ‘uwrapr’ version ‘1.0.0’
+* checking package namespace information ... OK
+* checking package dependencies ... OK
+* checking if this is a source package ... OK
+* checking if there is a namespace ... OK
+* checking for executable files ... OK
+* checking for hidden files and directories ... OK
+* checking for portable file names ... OK
+* checking for sufficient/correct file permissions ... OK
+* checking whether package ‘uwrapr’ can be installed ... OK
+* checking installed package size ... OK
+* checking package directory ... OK
+* checking DESCRIPTION meta-information ... OK
+* checking top-level files ... OK
+* checking for left-over files ... OK
+* checking index information ... OK
+* checking package subdirectories ... OK
+* checking R files for non-ASCII characters ... OK
+* checking R files for syntax errors ... OK
+* checking whether the package can be loaded ... OK
+* checking whether the package can be loaded with stated dependencies ... OK
+* checking whether the package can be unloaded cleanly ... OK
+* checking whether the namespace can be loaded with stated dependencies ... OK
+* checking whether the namespace can be unloaded cleanly ... OK
+* checking loading without being on the library search path ... OK
+* checking dependencies in R code ... OK
+* checking S3 generic/method consistency ... OK
+* checking replacement functions ... OK
+* checking foreign function calls ... OK
+* checking R code for possible problems ... NOTE
+add_from_file: no visible binding for global variable ‘V1’
+add_from_file: no visible binding for global variable ‘V2’
+divide_from_file: no visible binding for global variable ‘V1’
+divide_from_file: no visible binding for global variable ‘V2’
+multiply_from_file: no visible binding for global variable ‘V1’
+multiply_from_file: no visible binding for global variable ‘V2’
+subtract_from_file: no visible binding for global variable ‘V1’
+subtract_from_file: no visible binding for global variable ‘V2’
+Undefined global functions or variables:
+  V1 V2
+* checking Rd files ... OK
+* checking Rd metadata ... OK
+* checking Rd line widths ... OK
+* checking Rd cross-references ... OK
+* checking for missing documentation entries ... OK
+* checking for code/documentation mismatches ... OK
+* checking Rd \usage sections ... OK
+* checking Rd contents ... OK
+* checking for unstated dependencies in examples ... OK
+* checking examples ... OK
+* checking PDF version of manual ... OK
+* DONE
+Status: 1 NOTE
+```
+
+If something is wrong with your package, you'll get an ERROR. If something is probably wrong, you'll get a NOTE. If you want to try to submit your package to cran, you _need_ to ensure that there no ERRORS and if there are any NOTES they need to be completely trivial. I'm actually not sure if this package would be accepted on cran because that NOTE might be too problematic. Perhaps the most important thing if you want to submit your package to cran is that it _must_ be checked with the _latest_ version of r-devel (the in-development version of R). If you don't, then with probability 1 something will have changed in the checking procedure between the most recent stable release of R and the most recent r-devel, and so your package will be rejected from cran with a passive aggressive note from Brian Ripley.
+
+Finally, we can build the package using `devtools::build()`, which creates a tidied up tarball:
+
+```{r build_package}
+devtools::build("uwrapr")
+```
+
+And now you've done it! You've created your first R package! 
+
+There's a lot more to R packages, including vignettes, unit tests, compiled code, etc. But this should get you the bare bones to start making packages.
